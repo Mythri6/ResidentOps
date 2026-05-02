@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>My Concerns — ResidentOps</title>
+<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">🏢 ResidentOps<span class="sidebar-sub">Governance Platform</span></div>
+    <div class="sidebar-user"><strong th:text="${user.name}"></strong><br>
+      <small th:text="${user.serviceType}"></small>
+    </div>
+    <nav>
+      <a th:href="@{/dashboard}"      class="nav-item">📊 Dashboard</a>
+      <a th:href="@{/requests}"       class="nav-item">🔧 My Work</a>
+      <a th:href="@{/notices}"        class="nav-item">📢 Notices</a>
+      <a th:href="@{/vendor/concerns}" class="nav-item active">📨 My Concerns</a>
+      <a th:href="@{/profile}"        class="nav-item">👤 Profile</a>
+    </nav>
+    <div class="sidebar-footer"><a th:href="@{/logout}" class="btn-logout">Sign Out</a></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h2>Raise a Concern</h2>
+      <span class="role-badge" th:text="${user.role}"></span>
+    </header>
+    <div class="content">
+
+      <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+      <div th:if="${error}"   class="alert alert-danger"  th:text="${error}"></div>
+
+      <!-- ── Raise Concern Form ── -->
+      <div class="card">
+        <div class="card-title">New Concern</div>
+        <form method="post" th:action="@{/vendor/concerns/raise}" id="concernForm">
+
+          <div class="form-group">
+            <label>Concern Type <span class="req">*</span></label>
+            <select name="concernType" id="concernType" onchange="showFields(this.value)" required>
+              <option value="">— Select type —</option>
+              <option value="WORK_RELATED">Work Related</option>
+              <option value="LEAVE">Apply Leave</option>
+              <option value="OTHERS">Others</option>
+            </select>
+          </div>
+
+          <!-- WORK_RELATED fields -->
+          <div id="workFields" style="display:none">
+            <div class="form-group">
+              <label>Select Work (Task) <span class="req">*</span></label>
+              <select name="relatedRequestId" id="relatedRequestId">
+                <option value="">— Select assigned task —</option>
+                <option th:each="r : ${myRequests}"
+                        th:value="${r.id}"
+                        th:text="'#' + ${r.id} + ' — ' + ${r.title} + ' (' + ${r.status} + ')'"></option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Description (optional)</label>
+              <textarea name="description" placeholder="Describe the work-related issue..."></textarea>
+            </div>
+          </div>
+
+          <!-- LEAVE fields -->
+          <div id="leaveFields" style="display:none">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Leave From <span class="req">*</span></label>
+                <input type="date" name="leaveFrom" id="leaveFrom">
+              </div>
+              <div class="form-group">
+                <label>Leave To <span class="req">*</span></label>
+                <input type="date" name="leaveTo" id="leaveTo">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Reason for Leave <span class="req">*</span></label>
+              <textarea name="leaveReason" id="leaveReason" placeholder="Reason is required..." rows="3"></textarea>
+            </div>
+            <div style="background:var(--info-light);padding:10px;border-radius:6px;font-size:12px;margin-bottom:12px;color:var(--info)">
+              ℹ️ Leave requests require admin approval. Once approved, you will not be assignable during the leave period.
+            </div>
+          </div>
+
+          <!-- OTHERS fields -->
+          <div id="othersFields" style="display:none">
+            <div class="form-group">
+              <label>Description <span class="req">*</span></label>
+              <textarea name="description" id="othersDesc" placeholder="Describe your concern in detail (required)..." rows="4"></textarea>
+            </div>
+          </div>
+
+          <div id="submitArea" style="display:none">
+            <button type="submit" class="btn btn-primary">Raise Concern</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ── My Past Concerns ── -->
+      <div class="card">
+        <div class="card-title">My Concern History</div>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Type</th><th>Status</th><th>Details</th><th>Admin Response</th><th>Date</th></tr>
+          </thead>
+          <tbody>
+            <tr th:each="c : ${concerns}">
+              <td th:text="'#'+${c.id}"></td>
+              <td><span class="tag" th:text="${c.concernType}"></span></td>
+              <td>
+                <span th:class="'badge ' + (${c.status.name() == 'APPROVED'} ? 'badge-green' : (${c.status.name() == 'REJECTED' or c.status.name() == 'DROPPED'} ? 'badge-red' : 'badge-orange'))"
+                      th:text="${c.status}"></span>
+              </td>
+              <td>
+                <span th:if="${c.concernType.name() == 'LEAVE'}"
+                      th:text="${c.leaveFrom} + ' to ' + ${c.leaveTo}"></span>
+                <span th:if="${c.concernType.name() == 'WORK_RELATED'}"
+                      th:text="${c.relatedRequest != null ? 'Task #' + c.relatedRequest.id : '—'}"></span>
+                <span th:if="${c.concernType.name() == 'OTHERS'}"
+                      style="max-width:200px;display:block;overflow:hidden;text-overflow:ellipsis"
+                      th:text="${c.description}"></span>
+              </td>
+              <td th:text="${c.adminMessage != null ? c.adminMessage : '—'}" style="color:var(--text-muted);font-size:12px"></td>
+              <td style="font-size:12px;color:var(--text-muted)"
+                  th:text="${#temporals.format(c.createdAt,'dd MMM yyyy')}"></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(concerns)}">
+              <td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">No concerns raised yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+function showFields(type) {
+  document.getElementById('workFields').style.display   = 'none';
+  document.getElementById('leaveFields').style.display  = 'none';
+  document.getElementById('othersFields').style.display = 'none';
+  document.getElementById('submitArea').style.display   = 'none';
+
+  // Reset required
+  document.getElementById('leaveFrom').required   = false;
+  document.getElementById('leaveTo').required     = false;
+  document.getElementById('leaveReason').required = false;
+  document.getElementById('othersDesc').required  = false;
+
+  if (type === 'WORK_RELATED') {
+    document.getElementById('workFields').style.display = 'block';
+  } else if (type === 'LEAVE') {
+    document.getElementById('leaveFields').style.display = 'block';
+    document.getElementById('leaveFrom').required   = true;
+    document.getElementById('leaveTo').required     = true;
+    document.getElementById('leaveReason').required = true;
+  } else if (type === 'OTHERS') {
+    document.getElementById('othersFields').style.display = 'block';
+    document.getElementById('othersDesc').required = true;
+  }
+  if (type) document.getElementById('submitArea').style.display = 'block';
+}
+</script>
+</body>
+</html>

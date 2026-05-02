@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResidentOps — Apartment Governance Platform</title>
+<style>
+  :root {
+    --bg: #f4f6fb; --surface: #fff; --border: #e2e8f0;
+    --primary: #4f46e5; --primary-dark: #3730a3; --primary-light: #eef2ff;
+    --success: #16a34a; --success-light: #dcfce7;
+    --danger: #dc2626; --danger-light: #fee2e2;
+    --warning: #d97706; --warning-light: #fef3c7;
+    --info: #0284c7; --info-light: #e0f2fe;
+    --text: #1e293b; --text-muted: #64748b;
+    --radius: 10px; --shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  a { color: var(--primary); text-decoration: none; }
+
+  /* ── AUTH ─── */
+  #auth-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .auth-card { background: var(--surface); border-radius: 16px; padding: 40px; width: 380px; box-shadow: 0 4px 24px rgba(0,0,0,.12); }
+  .auth-card h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; color: var(--primary); }
+  .auth-card p { color: var(--text-muted); margin-bottom: 24px; font-size: 13px; }
+  .demo-users { background: var(--primary-light); border-radius: var(--radius); padding: 12px; margin-bottom: 20px; font-size: 12px; }
+  .demo-users b { display: block; margin-bottom: 6px; color: var(--primary-dark); }
+  .demo-users span { display: block; color: var(--text-muted); line-height: 1.7; }
+
+  /* ── LAYOUT ─── */
+  #app { display: none; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--primary-dark); color: #fff; padding: 0; flex-shrink: 0; display: flex; flex-direction: column; }
+  .sidebar-brand { padding: 20px 16px 16px; font-size: 16px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,.1); }
+  .sidebar-brand span { font-size: 11px; font-weight: 400; opacity: .7; display: block; }
+  .sidebar-user { padding: 12px 16px; font-size: 12px; opacity: .8; border-bottom: 1px solid rgba(255,255,255,.1); }
+  .sidebar nav { flex: 1; padding: 10px 0; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; font-size: 13px; transition: background .15s; border-left: 3px solid transparent; }
+  .nav-item:hover { background: rgba(255,255,255,.1); }
+  .nav-item.active { background: rgba(255,255,255,.15); border-left-color: #fff; font-weight: 600; }
+  .nav-item .icon { font-size: 16px; width: 20px; }
+  .sidebar-footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,.1); }
+  .logout-btn { background: rgba(255,255,255,.1); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; width: 100%; font-size: 13px; }
+  .logout-btn:hover { background: rgba(255,255,255,.2); }
+  .main { flex: 1; overflow-y: auto; }
+  .topbar { background: var(--surface); padding: 14px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  .topbar h2 { font-size: 16px; font-weight: 600; }
+  .content { padding: 24px; }
+
+  /* ── COMPONENTS ─── */
+  .card { background: var(--surface); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 16px; }
+  .card-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .stat-card { background: var(--surface); border-radius: var(--radius); padding: 18px; border: 1px solid var(--border); }
+  .stat-card .label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .stat-card .value { font-size: 28px; font-weight: 700; }
+  .stat-card.blue .value { color: var(--info); }
+  .stat-card.green .value { color: var(--success); }
+  .stat-card.red .value { color: var(--danger); }
+  .stat-card.orange .value { color: var(--warning); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; background: var(--bg); font-weight: 600; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8fafc; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-blue { background: var(--info-light); color: var(--info); }
+  .badge-green { background: var(--success-light); color: var(--success); }
+  .badge-red { background: var(--danger-light); color: var(--danger); }
+  .badge-orange { background: var(--warning-light); color: var(--warning); }
+  .badge-gray { background: #f1f5f9; color: var(--text-muted); }
+  .badge-purple { background: #ede9fe; color: #7c3aed; }
+
+  .btn { display: inline-block; padding: 8px 16px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: opacity .15s; }
+  .btn:hover { opacity: .88; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: var(--text-muted); }
+  input, select, textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; font-family: inherit; background: var(--surface); color: var(--text); }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+  textarea { resize: vertical; min-height: 70px; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-actions { margin-top: 16px; display: flex; gap: 10px; }
+
+  .alert { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; margin-bottom: 14px; }
+  .alert-success { background: var(--success-light); color: var(--success); }
+  .alert-danger { background: var(--danger-light); color: var(--danger); }
+  .alert-emergency { background: var(--danger-light); border-left: 4px solid var(--danger); padding: 12px; border-radius: 0 var(--radius) var(--radius) 0; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .vote-bar { height: 8px; border-radius: 4px; background: var(--border); margin-top: 4px; overflow: hidden; }
+  .vote-bar-fill { height: 100%; background: var(--primary); border-radius: 4px; transition: width .4s; }
+
+  .tag { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; background: var(--primary-light); color: var(--primary); font-weight: 500; margin-right: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ══ AUTH SCREEN ══ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <h1>ResidentOps</h1>
+    <p>Apartment Governance &amp; Operations Platform</p>
+    <div class="demo-users">
+      <b>Demo login credentials</b>
+      <span>Resident: arun@resident.com / pass123</span>
+      <span>Admin: ravi@admin.com / pass123</span>
+      <span>Vendor: ramesh@vendor.com / pass123</span>
+      <span>Auditor: auditor@ops.com / pass123</span>
+    </div>
+    <div id="login-error" class="alert alert-danger" style="display:none"></div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="your@email.com" value="ravi@admin.com">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Password" value="pass123">
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:11px" onclick="login()">Sign in</button>
+  </div>
+</div>
+
+<!-- ══ APP SHELL ══ -->
+<div id="app">
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-brand">ResidentOps <span>Governance Platform</span></div>
+      <div class="sidebar-user" id="sidebar-user-info">—</div>
+      <nav id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <button class="logout-btn" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <h2 id="page-title">Dashboard</h2>
+        <span id="topbar-role-badge" class="badge badge-purple"></span>
+      </div>
+      <div class="content">
+        <div id="section-dashboard"  class="section active"></div>
+        <div id="section-requests"   class="section"></div>
+        <div id="section-complaints" class="section"></div>
+        <div id="section-polls"      class="section"></div>
+        <div id="section-expenses"   class="section"></div>
+        <div id="section-notices"    class="section"></div>
+        <div id="section-audit"      class="section"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let currentUser = null;
+
+// ── STATUS HELPERS ──────────────────────────────────────────────
+const statusBadge = s => {
+  const m = {RAISED:'blue',ASSIGNED:'blue',IN_PROGRESS:'orange',WAITING_FOR_PARTS:'orange',
+    RESOLVED:'green',ESCALATED:'red',CLOSED:'gray',REJECTED:'gray',
+    FILED:'orange',UNDER_REVIEW:'orange',ESCALATED_C:'red',
+    OPEN:'green',CLOSED_P:'gray',INCONCLUSIVE:'orange'};
+  const cls = m[s] || 'gray';
+  return `<span class="badge badge-${cls}">${s.replace(/_/g,' ')}</span>`;
+};
+const priorityBadge = p => {
+  const m = {LOW:'gray',MEDIUM:'blue',HIGH:'orange',CRITICAL:'red'};
+  return `<span class="badge badge-${m[p]||'gray'}">${p}</span>`;
+};
+const fmt = dt => dt ? new Date(dt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+
+// ── AUTH ────────────────────────────────────────────────────────
+async function login() {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const err = document.getElementById('login-error');
+  try {
+    const res = await fetch(`${API}/auth/login`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email, password})
+    });
+    const data = await res.json();
+    if (res.ok) {
+      currentUser = data;
+      err.style.display = 'none';
+      initApp();
+    } else {
+      err.textContent = data.error || 'Login failed'; err.style.display = 'block';
+    }
+  } catch(e) { err.textContent = 'Cannot connect to server'; err.style.display = 'block'; }
+}
+
+function logout() {
+  currentUser = null;
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+// ── NAVIGATION SETUP ────────────────────────────────────────────
+const allNavItems = [
+  {id:'dashboard',  label:'Dashboard',   icon:'📊', roles:['RESIDENT','COMMITTEE_ADMIN','VENDOR','AUDITOR']},
+  {id:'requests',   label:'Maintenance', icon:'🔧', roles:['RESIDENT','COMMITTEE_ADMIN','VENDOR']},
+  {id:'complaints', label:'Complaints',  icon:'📋', roles:['RESIDENT','COMMITTEE_ADMIN']},
+  {id:'polls',      label:'Voting',      icon:'🗳️', roles:['RESIDENT','COMMITTEE_ADMIN']},
+  {id:'expenses',   label:'Expenses',    icon:'💰', roles:['COMMITTEE_ADMIN','AUDITOR']},
+  {id:'notices',    label:'Notices',     icon:'📢', roles:['RESIDENT','COMMITTEE_ADMIN','VENDOR','AUDITOR']},
+  {id:'audit',      label:'Audit Log',   icon:'🔍', roles:['COMMITTEE_ADMIN','AUDITOR']},
+];
+
+function initApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('sidebar-user-info').textContent =
+    `${currentUser.name} · ${currentUser.apartmentNo || currentUser.serviceType || currentUser.role}`;
+  document.getElementById('topbar-role-badge').textContent = currentUser.role.replace('_',' ');
+
+  const nav = document.getElementById('sidebar-nav');
+  nav.innerHTML = '';
+  allNavItems.filter(n => n.roles.includes(currentUser.role)).forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'nav-item' + (n.id === 'dashboard' ? ' active' : '');
+    el.dataset.section = n.id;
+    el.innerHTML = `<span class="icon">${n.icon}</span>${n.label}`;
+    el.onclick = () => navigate(n.id, n.label);
+    nav.appendChild(el);
+  });
+  navigate('dashboard', 'Dashboard');
+}
+
+function navigate(sectionId, label) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`section-${sectionId}`).classList.add('active');
+  document.querySelector(`.nav-item[data-section="${sectionId}"]`)?.classList.add('active');
+  document.getElementById('page-title').textContent = label;
+  loadSection(sectionId);
+}
+
+async function loadSection(id) {
+  switch(id) {
+    case 'dashboard':  await loadDashboard(); break;
+    case 'requests':   await loadRequests();  break;
+    case 'complaints': await loadComplaints();break;
+    case 'polls':      await loadPolls();     break;
+    case 'expenses':   await loadExpenses();  break;
+    case 'notices':    await loadNotices();   break;
+    case 'audit':      await loadAudit();     break;
+  }
+}
+
+// ── DASHBOARD ───────────────────────────────────────────────────
+async function loadDashboard() {
+  const [requests, complaints, polls, notices, expenses] = await Promise.all([
+    fetch(`${API}/requests`).then(r=>r.json()),
+    fetch(`${API}/complaints`).then(r=>r.json()),
+    fetch(`${API}/polls`).then(r=>r.json()),
+    fetch(`${API}/notices`).then(r=>r.json()),
+    currentUser.role !== 'RESIDENT' ? fetch(`${API}/expenses`).then(r=>r.json()) : Promise.resolve([])
+  ]);
+
+  const openReqs = requests.filter(r => !['CLOSED','REJECTED'].includes(r.status)).length;
+  const escalated = requests.filter(r => r.status === 'ESCALATED').length;
+  const openPolls = polls.filter(p => p.status === 'OPEN').length;
+  const emergencies = notices.filter(n => n.emergency);
+
+  const el = document.getElementById('section-dashboard');
+  let html = '';
+
+  if (emergencies.length > 0) {
+    html += `<div class="alert alert-emergency"><strong>🚨 Emergency Alert${emergencies.length > 1 ? 's' : ''}</strong>`;
+    emergencies.forEach(e => html += `<div style="margin-top:6px">${e.title} — ${e.body.substring(0,100)}...</div>`);
+    html += '</div>';
+  }
+
+  html += `<div class="stats-grid">
+    <div class="stat-card blue"><div class="label">Open Requests</div><div class="value">${openReqs}</div></div>
+    <div class="stat-card red"><div class="label">Escalated</div><div class="value">${escalated}</div></div>
+    <div class="stat-card green"><div class="label">Open Polls</div><div class="value">${openPolls}</div></div>
+    <div class="stat-card orange"><div class="label">Notices</div><div class="value">${notices.length}</div></div>
+  </div>`;
+
+  // Recent requests
+  html += `<div class="card"><div class="card-title">Recent Maintenance Requests</div><table>
+    <tr><th>Title</th><th>Category</th><th>Priority</th><th>Status</th><th>Date</th></tr>`;
+  requests.slice(0,5).forEach(r => {
+    html += `<tr><td>${r.title}</td><td><span class="tag">${r.category}</span></td><td>${priorityBadge(r.priority)}</td><td>${statusBadge(r.status)}</td><td>${fmt(r.createdAt)}</td></tr>`;
+  });
+  html += '</table></div>';
+
+  // Recent notices
+  html += `<div class="card"><div class="card-title">Latest Notices</div>`;
+  notices.slice(0,3).forEach(n => {
+    html += `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:3px">${n.title} ${n.emergency ? '🚨' : ''}</div>
+      <div style="color:var(--text-muted);font-size:12px">${n.body.substring(0,120)}...</div>
+      <div style="color:var(--text-muted);font-size:11px;margin-top:4px">${fmt(n.createdAt)}</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+// ── REQUESTS ────────────────────────────────────────────────────
+async function loadRequests() {
+  let requests;
+  if (currentUser.role === 'RESIDENT') {
+    requests = await fetch(`${API}/requests/resident/${currentUser.id}`).then(r=>r.json());
+  } else if (currentUser.role === 'VENDOR') {
+    requests = await fetch(`${API}/requests/vendor/${currentUser.id}`).then(r=>r.json());
+  } else {
+    requests = await fetch(`${API}/requests`).then(r=>r.json());
+  }
+
+  const users = await fetch(`${API}/auth/users`).then(r=>r.json());
+  const vendors = users.filter(u => u.role === 'VENDOR');
+
+  const el = document.getElementById('section-requests');
+  let html = '';
+
+  if (currentUser.role === 'RESIDENT') {
+    html += `<div class="card">
+      <div class="card-title">Raise New Request</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Title</label><input id="req-title" placeholder="e.g. Bathroom tap leaking"></div>
+        <div class="form-group"><label>Category</label>
+          <select id="req-cat"><option>PLUMBING</option><option>ELECTRICAL</option><option>CIVIL</option><option>CLEANING</option><option>SECURITY</option><option>OTHER</option></select>
+        </div>
+        <div class="form-group"><label>Priority</label>
+          <select id="req-pri"><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea id="req-desc" placeholder="Describe the issue in detail..."></textarea></div>
+      <div id="req-msg"></div>
+      <button class="btn btn-primary" onclick="raiseRequest()">Submit Request</button>
+    </div>`;
+  }
+
+  html += `<div class="card"><div class="card-title">Requests (${requests.length})</div><table>
+    <tr><th>#</th><th>Title</th><th>Category</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>SLA Deadline</th><th>Actions</th></tr>`;
+
+  requests.forEach(r => {
+    const sla = r.slaDeadline ? `<span style="color:${new Date(r.slaDeadline) < new Date() && !['CLOSED','RESOLVED'].includes(r.status) ? 'var(--danger)' : 'inherit'}">${fmt(r.slaDeadline)}</span>` : '—';
+    let actions = '';
+    if (currentUser.role === 'COMMITTEE_ADMIN' && r.status === 'RAISED') {
+      const opts = vendors.map(v => `<option value="${v.id}">${v.name} (${v.serviceType})</option>`).join('');
+      actions = `<select id="vendor-sel-${r.id}" style="width:120px;padding:4px;margin-right:4px"><option value="">Assign...</option>${opts}</select>
+        <button class="btn btn-primary btn-sm" onclick="assignVendor(${r.id})">Assign</button>`;
+    } else if (currentUser.role === 'VENDOR' && r.status === 'ASSIGNED' && r.assignedTo?.id === currentUser.id) {
+      actions = `<button class="btn btn-success btn-sm" onclick="updateStatus(${r.id},'IN_PROGRESS')">Start Work</button>`;
+    } else if (currentUser.role === 'VENDOR' && r.status === 'IN_PROGRESS' && r.assignedTo?.id === currentUser.id) {
+      actions = `<button class="btn btn-success btn-sm" onclick="updateStatus(${r.id},'RESOLVED')">Mark Resolved</button>`;
+    } else if (currentUser.role === 'COMMITTEE_ADMIN' && r.status === 'RESOLVED') {
+      actions = `<button class="btn btn-success btn-sm" onclick="closeRequest(${r.id})">Close</button>
+        <button class="btn btn-danger btn-sm" onclick="rejectRequest(${r.id})" style="margin-left:4px">Reject</button>`;
+    } else if (currentUser.role === 'RESIDENT' && r.status === 'CLOSED' && r.raisedBy?.id === currentUser.id) {
+      actions = `<button class="btn btn-primary btn-sm" onclick="showFeedback(${r.id})">Give Feedback</button>`;
+    }
+
+    html += `<tr>
+      <td>#${r.id}</td>
+      <td>${r.title}</td>
+      <td><span class="tag">${r.category}</span></td>
+      <td>${priorityBadge(r.priority)}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td>${r.assignedTo ? r.assignedTo.name : '—'}</td>
+      <td>${sla}</td>
+      <td>${actions}</td>
+    </tr>`;
+  });
+  html += '</table></div>';
+
+  // Feedback modal placeholder
+  html += `<div id="feedback-form" style="display:none" class="card">
+    <div class="card-title">Submit Feedback</div>
+    <input type="hidden" id="fb-req-id">
+    <div class="form-group"><label>Rating (1-5)</label><input type="number" id="fb-rating" min="1" max="5" value="5"></div>
+    <div class="form-group"><label>Comment</label><textarea id="fb-comment" placeholder="Your experience..."></textarea></div>
+    <div id="fb-msg"></div>
+    <button class="btn btn-primary" onclick="submitFeedback()">Submit</button>
+    <button class="btn" style="background:var(--bg)" onclick="document.getElementById('feedback-form').style.display='none'">Cancel</button>
+  </div>`;
+
+  el.innerHTML = html;
+}
+
+async function raiseRequest() {
+  const title = document.getElementById('req-title').value;
+  const description = document.getElementById('req-desc').value;
+  const category = document.getElementById('req-cat').value;
+  const priority = document.getElementById('req-pri').value;
+  const msg = document.getElementById('req-msg');
+  if (!title) { msg.innerHTML = '<div class="alert alert-danger">Title is required</div>'; return; }
+  const res = await fetch(`${API}/requests/raise`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({residentId: String(currentUser.id), title, description, category, priority})
+  });
+  if (res.ok) {
+    msg.innerHTML = '<div class="alert alert-success">Request submitted successfully!</div>';
+    setTimeout(() => loadRequests(), 1200);
+  } else {
+    const e = await res.json();
+    msg.innerHTML = `<div class="alert alert-danger">${e.error}</div>`;
+  }
+}
+
+async function assignVendor(reqId) {
+  const vendorId = document.getElementById(`vendor-sel-${reqId}`).value;
+  if (!vendorId) { alert('Please select a vendor'); return; }
+  const res = await fetch(`${API}/requests/${reqId}/assign`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({vendorId, adminId: String(currentUser.id)})
+  });
+  if (res.ok) loadRequests();
+  else { const e = await res.json(); alert(e.error); }
+}
+
+async function updateStatus(reqId, status) {
+  const workSummary = status === 'RESOLVED' ? (prompt('Work summary (optional):') || '') : '';
+  const res = await fetch(`${API}/requests/${reqId}/status`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({status, actorId: String(currentUser.id), workSummary})
+  });
+  if (res.ok) loadRequests();
+  else { const e = await res.json(); alert(e.error); }
+}
+
+async function closeRequest(reqId) {
+  const cost = prompt('Cost incurred (₹):') || '0';
+  const summary = prompt('Work summary:') || 'Work completed';
+  const res = await fetch(`${API}/requests/${reqId}/close`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({adminId: String(currentUser.id), workSummary: summary, cost})
+  });
+  if (res.ok) loadRequests(); else { const e = await res.json(); alert(e.error); }
+}
+
+async function rejectRequest(reqId) {
+  const reason = prompt('Rejection reason:');
+  if (!reason) return;
+  await fetch(`${API}/requests/${reqId}/reject`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({adminId: String(currentUser.id), reason})
+  });
+  loadRequests();
+}
+
+function showFeedback(reqId) {
+  document.getElementById('fb-req-id').value = reqId;
+  document.getElementById('feedback-form').style.display = 'block';
+  document.getElementById('feedback-form').scrollIntoView({behavior:'smooth'});
+}
+
+async function submitFeedback() {
+  const reqId = document.getElementById('fb-req-id').value;
+  const rating = document.getElementById('fb-rating').value;
+  const comment = document.getElementById('fb-comment').value;
+  const res = await fetch(`${API}/requests/${reqId}/feedback`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({residentId: String(currentUser.id), rating, comment})
+  });
+  if (res.ok) {
+    document.getElementById('fb-msg').innerHTML = '<div class="alert alert-success">Feedback submitted!</div>';
+    setTimeout(() => loadRequests(), 1200);
+  }
+}
+
+// ── COMPLAINTS ──────────────────────────────────────────────────
+async function loadComplaints() {
+  const complaints = await fetch(`${API}/complaints`).then(r=>r.json());
+  const el = document.getElementById('section-complaints');
+  let html = '';
+
+  if (currentUser.role === 'RESIDENT') {
+    html += `<div class="card"><div class="card-title">File a Complaint</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Title</label><input id="cmp-title" placeholder="Brief description"></div>
+        <div class="form-group"><label>Type</label>
+          <select id="cmp-type"><option>NOISE</option><option>PARKING</option><option>PET</option><option>HARASSMENT</option><option>MISUSE</option><option>OTHER</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea id="cmp-desc" placeholder="Describe the issue with details..."></textarea></div>
+      <div id="cmp-msg"></div>
+      <button class="btn btn-primary" onclick="fileComplaint()">File Complaint</button>
+    </div>`;
+  }
+
+  html += `<div class="card"><div class="card-title">All Complaints</div><table>
+    <tr><th>#</th><th>Title</th><th>Type</th><th>Filed By</th><th>Status</th><th>Date</th><th>Actions</th></tr>`;
+  complaints.forEach(c => {
+    let actions = '';
+    if (currentUser.role === 'COMMITTEE_ADMIN') {
+      actions = `<select id="cmp-status-${c.id}" style="width:110px;padding:4px">
+        <option>UNDER_REVIEW</option><option>ESCALATED</option><option>RESOLVED</option><option>CLOSED</option>
+      </select>
+      <button class="btn btn-sm btn-primary" onclick="updateComplaintStatus(${c.id})" style="margin-left:4px">Update</button>`;
+    }
+    html += `<tr>
+      <td>#${c.id}</td><td>${c.title}</td>
+      <td><span class="tag">${c.complaintType}</span></td>
+      <td>${c.filedBy?.name || '—'}</td>
+      <td>${statusBadge(c.status)}</td>
+      <td>${fmt(c.createdAt)}</td>
+      <td>${actions}</td>
+    </tr>`;
+  });
+  html += '</table></div>';
+  el.innerHTML = html;
+}
+
+async function fileComplaint() {
+  const title = document.getElementById('cmp-title').value;
+  const description = document.getElementById('cmp-desc').value;
+  const type = document.getElementById('cmp-type').value;
+  if (!title) return;
+  const res = await fetch(`${API}/complaints/file`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({filedById: String(currentUser.id), title, description, type})
+  });
+  if (res.ok) {
+    document.getElementById('cmp-msg').innerHTML = '<div class="alert alert-success">Complaint filed!</div>';
+    setTimeout(() => loadComplaints(), 1200);
+  }
+}
+
+async function updateComplaintStatus(id) {
+  const status = document.getElementById(`cmp-status-${id}`).value;
+  const res = await fetch(`${API}/complaints/${id}/status`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({status, adminId: String(currentUser.id), resolution: 'Reviewed by committee'})
+  });
+  if (res.ok) loadComplaints();
+}
+
+// ── POLLS ───────────────────────────────────────────────────────
+async function loadPolls() {
+  const polls = await fetch(`${API}/polls`).then(r=>r.json());
+  const el = document.getElementById('section-polls');
+  let html = '';
+
+  if (currentUser.role === 'COMMITTEE_ADMIN') {
+    const def = new Date(Date.now() + 7*24*3600000).toISOString().slice(0,16);
+    html += `<div class="card"><div class="card-title">Create New Poll</div>
+      <div class="form-group"><label>Question</label><input id="poll-q" placeholder="Should we install CCTV in corridors?"></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Quorum (min votes)</label><input type="number" id="poll-quorum" value="5"></div>
+        <div class="form-group"><label>Deadline</label><input type="datetime-local" id="poll-deadline" value="${def}"></div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea id="poll-desc" placeholder="Additional context..."></textarea></div>
+      <div id="poll-msg"></div>
+      <button class="btn btn-primary" onclick="createPoll()">Create Poll</button>
+    </div>`;
+  }
+
+  for (const p of polls) {
+    let results = null;
+    try { results = await fetch(`${API}/polls/${p.id}/results`).then(r=>r.json()); } catch(e) {}
+    const total = results ? Number(results.TOTAL) : 0;
+    const yes = results ? Number(results.YES) : 0;
+    const no = results ? Number(results.NO) : 0;
+    const quorum = results ? Number(results.QUORUM) : p.quorum;
+    const yesPct = total > 0 ? Math.round(yes/total*100) : 0;
+
+    html += `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+        <div>
+          <div style="font-weight:600;font-size:15px;margin-bottom:4px">${p.question}</div>
+          <div style="font-size:12px;color:var(--text-muted)">Deadline: ${fmt(p.deadline)} · Quorum: ${quorum}</div>
+        </div>
+        ${statusBadge(p.status)}
+      </div>`;
+
+    if (p.description) html += `<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">${p.description}</div>`;
+
+    html += `<div style="display:flex;gap:20px;margin-bottom:12px;font-size:13px">
+      <span>✅ YES: <strong>${yes}</strong></span>
+      <span>❌ NO: <strong>${no}</strong></span>
+      <span>Total: <strong>${total}</strong> / Quorum: <strong>${quorum}</strong></span>
+    </div>
+    <div class="vote-bar"><div class="vote-bar-fill" style="width:${yesPct}%"></div></div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:3px">${yesPct}% YES</div>`;
+
+    if (p.status === 'OPEN') {
+      if (currentUser.role === 'RESIDENT') {
+        html += `<div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn btn-success btn-sm" onclick="castVote(${p.id},'YES')">Vote YES</button>
+          <button class="btn btn-danger btn-sm" onclick="castVote(${p.id},'NO')">Vote NO</button>
+          <button class="btn btn-sm" style="background:var(--bg)" onclick="castVote(${p.id},'ABSTAIN')">Abstain</button>
+        </div>`;
+      }
+      if (currentUser.role === 'COMMITTEE_ADMIN') {
+        html += `<div style="margin-top:12px">
+          <button class="btn btn-danger btn-sm" onclick="closePoll(${p.id})">Close Poll</button>
+        </div>`;
+      }
+    }
+
+    if (p.result) {
+      html += `<div style="margin-top:10px;padding:8px 12px;background:var(--bg);border-radius:6px;font-size:13px;font-weight:500">${p.result}</div>`;
+    }
+
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+async function createPoll() {
+  const question = document.getElementById('poll-q').value;
+  const deadline = document.getElementById('poll-deadline').value;
+  if (!question || !deadline) return;
+  const res = await fetch(`${API}/polls/create`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      adminId: String(currentUser.id), question,
+      description: document.getElementById('poll-desc').value,
+      quorum: document.getElementById('poll-quorum').value,
+      deadline: deadline + ':00'
+    })
+  });
+  if (res.ok) { document.getElementById('poll-msg').innerHTML = '<div class="alert alert-success">Poll created!</div>'; setTimeout(() => loadPolls(), 1200); }
+  else { const e = await res.json(); document.getElementById('poll-msg').innerHTML = `<div class="alert alert-danger">${e.error}</div>`; }
+}
+
+async function castVote(pollId, choice) {
+  const res = await fetch(`${API}/polls/${pollId}/vote`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({userId: String(currentUser.id), choice})
+  });
+  if (res.ok) loadPolls();
+  else { const e = await res.json(); alert(e.error); }
+}
+
+async function closePoll(pollId) {
+  const res = await fetch(`${API}/polls/${pollId}/close`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({adminId: String(currentUser.id)})
+  });
+  if (res.ok) loadPolls();
+}
+
+// ── EXPENSES ────────────────────────────────────────────────────
+async function loadExpenses() {
+  const [expenses, total] = await Promise.all([
+    fetch(`${API}/expenses`).then(r=>r.json()),
+    fetch(`${API}/expenses/total`).then(r=>r.json())
+  ]);
+  const el = document.getElementById('section-expenses');
+  let html = '';
+
+  if (currentUser.role === 'COMMITTEE_ADMIN') {
+    const today = new Date().toISOString().slice(0,10);
+    html += `<div class="card"><div class="card-title">Add Expense</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Title</label><input id="exp-title" placeholder="e.g. Generator fuel"></div>
+        <div class="form-group"><label>Amount (₹)</label><input type="number" id="exp-amount" placeholder="5000"></div>
+        <div class="form-group"><label>Category</label>
+          <select id="exp-cat"><option>MAINTENANCE</option><option>SALARY</option><option>UTILITIES</option><option>SECURITY</option><option>REPAIR</option><option>OTHER</option></select>
+        </div>
+        <div class="form-group"><label>Date</label><input type="date" id="exp-date" value="${today}"></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="exp-notes" placeholder="Additional details..."></textarea></div>
+      <div id="exp-msg"></div>
+      <button class="btn btn-primary" onclick="addExpense()">Add Expense</button>
+    </div>`;
+  }
+
+  html += `<div class="stats-grid">
+    <div class="stat-card orange"><div class="label">Total Expenses</div><div class="value">₹${Number(total.total||0).toLocaleString('en-IN')}</div></div>
+    <div class="stat-card blue"><div class="label">Records</div><div class="value">${expenses.length}</div></div>
+  </div>`;
+
+  html += `<div class="card"><div class="card-title">Expense Records</div><table>
+    <tr><th>#</th><th>Title</th><th>Category</th><th>Amount</th><th>Approved By</th><th>Date</th><th>Notes</th></tr>`;
+  expenses.forEach(e => {
+    html += `<tr>
+      <td>#${e.id}</td><td>${e.title}</td>
+      <td><span class="tag">${e.category}</span></td>
+      <td style="font-weight:600;color:var(--danger)">₹${Number(e.amount).toLocaleString('en-IN')}</td>
+      <td>${e.approvedBy?.name || '—'}</td>
+      <td>${fmt(e.expenseDate)}</td>
+      <td style="color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis">${e.notes||'—'}</td>
+    </tr>`;
+  });
+  html += '</table></div>';
+  el.innerHTML = html;
+}
+
+async function addExpense() {
+  const title = document.getElementById('exp-title').value;
+  const amount = document.getElementById('exp-amount').value;
+  if (!title || !amount) return;
+  const res = await fetch(`${API}/expenses/add`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      adminId: String(currentUser.id), title, amount,
+      category: document.getElementById('exp-cat').value,
+      notes: document.getElementById('exp-notes').value,
+      expenseDate: document.getElementById('exp-date').value
+    })
+  });
+  if (res.ok) { document.getElementById('exp-msg').innerHTML = '<div class="alert alert-success">Expense added!</div>'; setTimeout(() => loadExpenses(), 1200); }
+}
+
+// ── NOTICES ─────────────────────────────────────────────────────
+async function loadNotices() {
+  const notices = await fetch(`${API}/notices`).then(r=>r.json());
+  const el = document.getElementById('section-notices');
+  let html = '';
+
+  if (currentUser.role === 'COMMITTEE_ADMIN') {
+    html += `<div class="card"><div class="card-title">Post Notice / Broadcast</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Title</label><input id="ntc-title" placeholder="e.g. Water supply interruption"></div>
+        <div class="form-group"><label>Type</label>
+          <select id="ntc-type"><option>GENERAL</option><option>WATER_CUT</option><option>POWER_CUT</option><option>EMERGENCY</option><option>MEETING</option><option>EVENT</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Message</label><textarea id="ntc-body" placeholder="Full message for residents..."></textarea></div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="ntc-emergency" style="width:auto">
+        <label style="margin:0;font-weight:500;color:var(--danger)">Mark as Emergency Alert 🚨</label>
+      </div>
+      <div id="ntc-msg"></div>
+      <button class="btn btn-primary" onclick="postNotice()">Post Notice</button>
+    </div>`;
+  }
+
+  html += `<div class="card"><div class="card-title">All Notices</div>`;
+  notices.forEach(n => {
+    html += `<div style="padding:14px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:600">${n.title} ${n.emergency ? '🚨' : ''}</span>
+        <span class="badge badge-${n.emergency ? 'red' : 'blue'}">${n.noticeType.replace('_',' ')}</span>
+      </div>
+      <div style="color:var(--text-muted);font-size:13px;line-height:1.6">${n.body}</div>
+      <div style="color:var(--text-muted);font-size:11px;margin-top:6px">Posted by ${n.postedBy?.name || '—'} · ${fmt(n.createdAt)}</div>
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+async function postNotice() {
+  const title = document.getElementById('ntc-title').value;
+  const body = document.getElementById('ntc-body').value;
+  if (!title || !body) return;
+  const res = await fetch(`${API}/notices/post`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      adminId: String(currentUser.id), title, body,
+      type: document.getElementById('ntc-type').value,
+      emergency: String(document.getElementById('ntc-emergency').checked)
+    })
+  });
+  if (res.ok) { document.getElementById('ntc-msg').innerHTML = '<div class="alert alert-success">Notice posted!</div>'; setTimeout(() => loadNotices(), 1200); }
+}
+
+// ── AUDIT LOG ───────────────────────────────────────────────────
+async function loadAudit() {
+  const logs = await fetch(`${API}/audit`).then(r=>r.json());
+  const el = document.getElementById('section-audit');
+  let html = `<div class="card"><div class="card-title">Audit Trail (${logs.length} records)</div><table>
+    <tr><th>#</th><th>Action</th><th>Entity</th><th>Entity ID</th><th>Performed By</th><th>Details</th><th>Time</th></tr>`;
+  logs.slice(0, 100).forEach(l => {
+    html += `<tr>
+      <td>#${l.id}</td>
+      <td><span class="tag">${l.action}</span></td>
+      <td><span class="badge badge-blue">${l.entityType}</span></td>
+      <td>#${l.entityId}</td>
+      <td>${l.performedBy?.name || '—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;color:var(--text-muted)">${l.details||'—'}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${fmt(l.performedAt)}</td>
+    </tr>`;
+  });
+  html += '</table></div>';
+  el.innerHTML = html;
+}
+</script>
+</body>
+</html>

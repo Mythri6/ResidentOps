@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Audit Log — ResidentOps</title>
+<link rel="stylesheet" th:href="@{/css/style.css}"></head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">🏢 ResidentOps<span class="sidebar-sub">Governance Platform</span></div>
+    <div class="sidebar-user"><strong th:text="${user.name}"></strong><br><small th:text="${user.role}"></small></div>
+    <nav>
+      <a th:href="@{/dashboard}" class="nav-item">📊 Dashboard</a>
+      <a th:href="@{/requests}" class="nav-item">🔧 Maintenance</a>
+      <a th:href="@{/expenses}" class="nav-item">💰 Expenses</a>
+      <a th:href="@{/notices}" class="nav-item">📢 Notices</a>
+      <a th:href="@{/audit}" class="nav-item active">🔍 Audit Log</a>
+    </nav>
+    <div class="sidebar-footer"><a th:href="@{/logout}" class="btn-logout">Sign Out</a></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><h2>Audit &amp; Transparency Log</h2><span class="role-badge" th:text="${user.role}"></span></header>
+    <div class="content">
+      <div class="card">
+        <div class="card-title">Audit Trail — <span th:text="${#lists.size(logs)}">0</span> Records</div>
+        <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>#</th><th>Action</th><th>Entity</th><th>Entity ID</th><th>Performed By</th><th>Details</th><th>Timestamp</th></tr></thead>
+          <tbody>
+            <tr th:each="log : ${logs}">
+              <td th:text="${log.id}"></td>
+              <td><span class="tag" th:text="${log.action}"></span></td>
+              <td><span class="badge badge-blue" th:text="${log.entityType}"></span></td>
+              <td th:text="'#'+${log.entityId}"></td>
+              <td th:text="${log.performedBy.name}"></td>
+              <td style="color:#64748b;max-width:200px" th:text="${log.details != null ? log.details : '—'}"></td>
+              <td style="font-size:11px;color:#94a3b8" th:text="${#temporals.format(log.performedAt,'dd MMM yyyy HH:mm')}"></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(logs)}"><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">No audit records yet</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body></html>

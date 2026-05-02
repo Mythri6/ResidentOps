@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Voting — ResidentOps</title>
+<link rel="stylesheet" th:href="@{/css/style.css}"></head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">🏢 ResidentOps<span class="sidebar-sub">Governance Platform</span></div>
+    <div class="sidebar-user"><strong th:text="${user.name}"></strong><br><small th:text="${user.role}"></small></div>
+    <nav>
+      <a th:href="@{/dashboard}" class="nav-item">📊 Dashboard</a>
+      <a th:href="@{/requests}" class="nav-item">🔧 Maintenance</a>
+      <a th:href="@{/complaints}" class="nav-item">📋 Complaints</a>
+      <a th:href="@{/polls}" class="nav-item active">🗳️ Voting</a>
+      <a th:if="${user.role.name() == 'COMMITTEE_ADMIN'}" th:href="@{/expenses}" class="nav-item">💰 Expenses</a>
+      <a th:href="@{/notices}" class="nav-item">📢 Notices</a>
+      <a th:if="${user.role.name() == 'COMMITTEE_ADMIN' or user.role.name() == 'AUDITOR'}" th:href="@{/audit}" class="nav-item">🔍 Audit Log</a>
+    </nav>
+    <div class="sidebar-footer"><a th:href="@{/logout}" class="btn-logout">Sign Out</a></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><h2>Community Voting</h2><span class="role-badge" th:text="${user.role}"></span></header>
+    <div class="content">
+      <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+      <div th:if="${error}"   class="alert alert-danger"  th:text="${error}"></div>
+
+      <div th:if="${user.role.name() == 'COMMITTEE_ADMIN'}" class="card">
+        <div class="card-title">Create New Poll</div>
+        <form method="post" th:action="@{/polls/create}">
+          <div class="form-group"><label>Question</label><input name="question" placeholder="Should we install CCTV?" required></div>
+          <div class="form-grid">
+            <div class="form-group"><label>Quorum (min votes required)</label><input type="number" name="quorum" value="5" min="1"></div>
+            <div class="form-group"><label>Deadline</label><input type="datetime-local" name="deadline" required></div>
+          </div>
+          <div class="form-group"><label>Description</label><textarea name="description" placeholder="Additional context..."></textarea></div>
+          <button type="submit" class="btn btn-primary">Create Poll</button>
+        </form>
+      </div>
+
+      <div th:each="poll : ${polls}" class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="font-weight:600;font-size:15px;margin-bottom:4px" th:text="${poll.question}"></div>
+            <div style="font-size:12px;color:#64748b">
+              Deadline: <span th:text="${#temporals.format(poll.deadline,'dd MMM yyyy HH:mm')}"></span>
+              · Quorum: <span th:text="${poll.quorum}"></span>
+            </div>
+          </div>
+          <span class="badge" th:text="${poll.status}"></span>
+        </div>
+        <p th:if="${poll.description}" style="color:#64748b;font-size:13px;margin:10px 0" th:text="${poll.description}"></p>
+
+        <div class="vote-counts" th:if="${pollResults[poll.id] != null}">
+          <span>✅ YES: <strong th:text="${pollResults[poll.id]['YES']}">0</strong></span>
+          &nbsp;&nbsp;
+          <span>❌ NO: <strong th:text="${pollResults[poll.id]['NO']}">0</strong></span>
+          &nbsp;&nbsp;
+          <span>Total: <strong th:text="${pollResults[poll.id]['TOTAL']}">0</strong></span>
+        </div>
+
+        <div th:if="${poll.result}" class="result-box" th:text="${poll.result}"></div>
+
+        <div th:if="${poll.status.name() == 'OPEN'}" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <form th:if="${user.role.name() == 'RESIDENT'}" method="post" th:action="@{/polls/{id}/vote(id=${poll.id})}" style="display:inline-flex;gap:6px">
+            <input type="hidden" name="choice" value="YES">
+            <button type="submit" class="btn btn-success btn-sm">Vote YES</button>
+          </form>
+          <form th:if="${user.role.name() == 'RESIDENT'}" method="post" th:action="@{/polls/{id}/vote(id=${poll.id})}" style="display:inline">
+            <input type="hidden" name="choice" value="NO">
+            <button type="submit" class="btn btn-danger btn-sm">Vote NO</button>
+          </form>
+          <form th:if="${user.role.name() == 'COMMITTEE_ADMIN'}" method="post" th:action="@{/polls/{id}/close(id=${poll.id})}" style="display:inline">
+            <button type="submit" class="btn btn-sm" style="background:#f1f5f9">Close Poll</button>
+          </form>
+        </div>
+      </div>
+
+      <div th:if="${#lists.isEmpty(polls)}" class="card" style="text-align:center;color:#94a3b8">No polls created yet</div>
+    </div>
+  </main>
+</div>
+</body></html>

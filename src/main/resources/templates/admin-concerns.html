@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Vendor Concerns — ResidentOps</title>
+<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">🏢 ResidentOps<span class="sidebar-sub">Governance Platform</span></div>
+    <div class="sidebar-user"><strong th:text="${user.name}"></strong><br><small th:text="${user.role}"></small></div>
+    <nav>
+      <a th:href="@{/dashboard}"     class="nav-item">📊 Dashboard</a>
+      <a th:href="@{/requests}"      class="nav-item">🔧 Maintenance</a>
+      <a th:href="@{/complaints}"    class="nav-item">📋 Complaints</a>
+      <a th:href="@{/polls}"         class="nav-item">🗳️ Voting</a>
+      <a th:href="@{/expenses}"      class="nav-item">💰 Expenses</a>
+      <a th:href="@{/notices}"       class="nav-item">📢 Notices</a>
+      <a th:href="@{/admin/people}"  class="nav-item">👥 People</a>
+      <a th:href="@{/admin/concerns}" class="nav-item active">📨 Concerns</a>
+      <a th:href="@{/audit}"         class="nav-item">🔍 Audit Log</a>
+    </nav>
+    <div class="sidebar-footer"><a th:href="@{/logout}" class="btn-logout">Sign Out</a></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h2>Vendor Concerns</h2>
+      <span class="role-badge" th:text="${user.role}"></span>
+    </header>
+    <div class="content">
+
+      <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+      <div th:if="${error}"   class="alert alert-danger"  th:text="${error}"></div>
+
+      <div class="card">
+        <div class="card-title">All Vendor Concerns (<span th:text="${#lists.size(concerns)}">0</span>)</div>
+        <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Vendor</th><th>Service</th><th>Type</th>
+              <th>Details</th><th>Status</th><th>Date</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="c : ${concerns}">
+              <td th:text="'#'+${c.id}"></td>
+              <td><strong th:text="${c.vendor.name}"></strong></td>
+              <td><span class="tag" th:text="${c.vendor.serviceType}"></span></td>
+              <td><span class="badge badge-blue" th:text="${c.concernType}"></span></td>
+              <td>
+                <!-- Leave details -->
+                <span th:if="${c.concernType.name() == 'LEAVE'}">
+                  📅 <span th:text="${c.leaveFrom}"></span> to <span th:text="${c.leaveTo}"></span>
+                  <br><small style="color:var(--text-muted)" th:text="${c.leaveReason}"></small>
+                </span>
+                <!-- Work related -->
+                <span th:if="${c.concernType.name() == 'WORK_RELATED'}">
+                  Task <span th:text="${c.relatedRequest != null ? '#' + c.relatedRequest.id + ': ' + c.relatedRequest.title : '—'}"></span>
+                  <span th:if="${c.description}" style="display:block;font-size:11px;color:var(--text-muted)" th:text="${c.description}"></span>
+                </span>
+                <!-- Others -->
+                <span th:if="${c.concernType.name() == 'OTHERS'}"
+                      style="max-width:200px;display:block;font-size:12px"
+                      th:text="${c.description}"></span>
+              </td>
+              <td>
+                <span th:class="'badge ' + (${c.status.name() == 'APPROVED'} ? 'badge-green' : (${c.status.name() == 'REJECTED' or c.status.name() == 'DROPPED'} ? 'badge-red' : 'badge-orange'))"
+                      th:text="${c.status}"></span>
+              </td>
+              <td style="font-size:12px" th:text="${#temporals.format(c.createdAt,'dd MMM yyyy')}"></td>
+              <td>
+                <!-- Only show actions for PENDING -->
+                <div th:if="${c.status.name() == 'PENDING'}" style="display:flex;flex-direction:column;gap:6px;min-width:220px">
+                  <input type="text" id="msg-[[${c.id}]]" placeholder="Message to vendor (optional)"
+                         style="padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:5px">
+
+                  <div style="display:flex;gap:4px;flex-wrap:wrap">
+                    <!-- Approve -->
+                    <form method="post" th:action="@{/admin/concerns/{id}/approve(id=${c.id})}"
+                          style="display:inline" onsubmit="injectMsg(event,[[${c.id}]],'approve')">
+                      <input type="hidden" name="message" id="approve-msg-[[${c.id}]]" value="Approved">
+                      <button type="submit" class="btn btn-success btn-sm">
+                        <span th:text="${c.concernType.name() == 'LEAVE'} ? '✅ Approve Leave' : '✅ Approve'"></span>
+                      </button>
+                    </form>
+
+                    <!-- Reject -->
+                    <form method="post" th:action="@{/admin/concerns/{id}/reject(id=${c.id})}"
+                          style="display:inline" onsubmit="injectMsg(event,[[${c.id}]],'reject')">
+                      <input type="hidden" name="message" id="reject-msg-[[${c.id}]]" value="Rejected">
+                      <button type="submit" class="btn btn-danger btn-sm">❌ Reject</button>
+                    </form>
+
+                    <!-- Drop (for non-leave) -->
+                    <form th:if="${c.concernType.name() != 'LEAVE'}"
+                          method="post" th:action="@{/admin/concerns/{id}/drop(id=${c.id})}"
+                          style="display:inline" onsubmit="injectMsg(event,[[${c.id}]],'drop')">
+                      <input type="hidden" name="message" id="drop-msg-[[${c.id}]]" value="Dropped">
+                      <button type="submit" class="btn btn-sm" style="background:#f1f5f9">🗑 Drop</button>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Show past admin message if processed -->
+                <div th:unless="${c.status.name() == 'PENDING'}" style="font-size:12px;color:var(--text-muted)">
+                  <em th:text="${c.adminMessage != null ? c.adminMessage : '—'}"></em>
+                </div>
+              </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(concerns)}">
+              <td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px">No concerns raised yet</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+function injectMsg(e, id, action) {
+  const msg = document.getElementById('msg-' + id)?.value || '';
+  if (msg.trim()) {
+    document.getElementById(action + '-msg-' + id).value = msg;
+  }
+}
+</script>
+</body>
+</html>

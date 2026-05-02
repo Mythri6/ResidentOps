@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Notices — ResidentOps</title>
+<link rel="stylesheet" th:href="@{/css/style.css}"></head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">🏢 ResidentOps<span class="sidebar-sub">Governance Platform</span></div>
+    <div class="sidebar-user"><strong th:text="${user.name}"></strong><br><small th:text="${user.role}"></small></div>
+    <nav>
+      <a th:href="@{/dashboard}" class="nav-item">📊 Dashboard</a>
+      <a th:href="@{/requests}" class="nav-item">🔧 Maintenance</a>
+      <a th:if="${user.role.name() == 'RESIDENT' or user.role.name() == 'COMMITTEE_ADMIN'}" th:href="@{/complaints}" class="nav-item">📋 Complaints</a>
+      <a th:if="${user.role.name() == 'RESIDENT' or user.role.name() == 'COMMITTEE_ADMIN'}" th:href="@{/polls}" class="nav-item">🗳️ Voting</a>
+      <a th:if="${user.role.name() == 'COMMITTEE_ADMIN' or user.role.name() == 'AUDITOR'}" th:href="@{/expenses}" class="nav-item">💰 Expenses</a>
+      <a th:href="@{/notices}" class="nav-item active">📢 Notices</a>
+      <a th:if="${user.role.name() == 'COMMITTEE_ADMIN' or user.role.name() == 'AUDITOR'}" th:href="@{/audit}" class="nav-item">🔍 Audit Log</a>
+    </nav>
+    <div class="sidebar-footer"><a th:href="@{/logout}" class="btn-logout">Sign Out</a></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><h2>Notices &amp; Broadcasts</h2><span class="role-badge" th:text="${user.role}"></span></header>
+    <div class="content">
+      <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+
+      <div th:if="${user.role.name() == 'COMMITTEE_ADMIN'}" class="card">
+        <div class="card-title">Post Notice / Broadcast</div>
+        <form method="post" th:action="@{/notices/post}">
+          <div class="form-grid">
+            <div class="form-group"><label>Title</label><input name="title" placeholder="e.g. Water supply off" required></div>
+            <div class="form-group"><label>Type</label>
+              <select name="type"><option>GENERAL</option><option>WATER_CUT</option><option>POWER_CUT</option><option>EMERGENCY</option><option>MEETING</option><option>EVENT</option></select>
+            </div>
+          </div>
+          <div class="form-group"><label>Message</label><textarea name="body" placeholder="Full message for all residents..." required></textarea></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <input type="checkbox" name="emergency" id="emergCheck" style="width:auto">
+            <label for="emergCheck" style="font-weight:500;color:#dc2626;margin:0">Mark as Emergency Alert 🚨</label>
+          </div>
+          <button type="submit" class="btn btn-primary">Post Notice</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-title">All Notices</div>
+        <div th:each="n : ${notices}" class="notice-item" th:classappend="${n.emergency} ? ' emergency-notice' : ''">
+          <div class="notice-header">
+            <span class="notice-title"><span th:if="${n.emergency}">🚨 </span><span th:text="${n.title}"></span></span>
+            <span th:if="${n.emergency}" class="badge badge-red">EMERGENCY</span>
+            <span th:unless="${n.emergency}" class="badge badge-blue" th:text="${n.noticeType}"></span>
+          </div>
+          <p class="notice-body" th:text="${n.body}"></p>
+          <small class="notice-meta" th:text="${n.postedBy.name} + ' · ' + ${#temporals.format(n.createdAt,'dd MMM yyyy HH:mm')}"></small>
+        </div>
+        <div th:if="${#lists.isEmpty(notices)}" style="text-align:center;color:#94a3b8;padding:20px">No notices yet</div>
+      </div>
+    </div>
+  </main>
+</div>
+</body></html>

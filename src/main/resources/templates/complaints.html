@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Complaints — ResidentOps</title>
+<link rel="stylesheet" th:href="@{/css/style.css}"></head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">🏢 ResidentOps<span class="sidebar-sub">Governance Platform</span></div>
+    <div class="sidebar-user"><strong th:text="${user.name}"></strong><br><small th:text="${user.role}"></small></div>
+    <nav>
+      <a th:href="@{/dashboard}" class="nav-item">📊 Dashboard</a>
+      <a th:href="@{/requests}" class="nav-item">🔧 Maintenance</a>
+      <a th:href="@{/complaints}" class="nav-item active">📋 Complaints</a>
+      <a th:href="@{/polls}" class="nav-item">🗳️ Voting</a>
+      <a th:if="${user.role.name() == 'COMMITTEE_ADMIN'}" th:href="@{/expenses}" class="nav-item">💰 Expenses</a>
+      <a th:href="@{/notices}" class="nav-item">📢 Notices</a>
+      <a th:if="${user.role.name() == 'COMMITTEE_ADMIN' or user.role.name() == 'AUDITOR'}" th:href="@{/audit}" class="nav-item">🔍 Audit Log</a>
+    </nav>
+    <div class="sidebar-footer"><a th:href="@{/logout}" class="btn-logout">Sign Out</a></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><h2>Complaints &amp; Disputes</h2><span class="role-badge" th:text="${user.role}"></span></header>
+    <div class="content">
+      <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+      <div th:if="${error}"   class="alert alert-danger"  th:text="${error}"></div>
+
+      <div th:if="${user.role.name() == 'RESIDENT'}" class="card">
+        <div class="card-title">File a Complaint</div>
+        <form method="post" th:action="@{/complaints/file}">
+          <div class="form-grid">
+            <div class="form-group"><label>Title</label><input name="title" placeholder="Brief description" required></div>
+            <div class="form-group"><label>Type</label>
+              <select name="type"><option>NOISE</option><option>PARKING</option><option>PET</option><option>HARASSMENT</option><option>MISUSE</option><option>OTHER</option></select>
+            </div>
+          </div>
+          <div class="form-group"><label>Description</label><textarea name="description" placeholder="Describe in detail..."></textarea></div>
+          <button type="submit" class="btn btn-primary">File Complaint</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Complaints (<span th:text="${#lists.size(complaints)}">0</span>)</div>
+        <table>
+          <thead><tr><th>#</th><th>Title</th><th>Type</th><th>Filed By</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr th:each="c : ${complaints}">
+              <td th:text="'#'+${c.id}"></td>
+              <td th:text="${c.title}"></td>
+              <td><span class="tag" th:text="${c.complaintType}"></span></td>
+              <td th:text="${c.filedBy.name}"></td>
+              <td><span class="badge" th:text="${c.status}"></span></td>
+              <td th:text="${#temporals.format(c.createdAt,'dd MMM yyyy')}"></td>
+              <td>
+                <form th:if="${user.role.name() == 'COMMITTEE_ADMIN'}"
+                      method="post" th:action="@{/complaints/{id}/update(id=${c.id})}" style="display:inline-flex;gap:4px">
+                  <select name="status" style="padding:4px;font-size:12px">
+                    <option>UNDER_REVIEW</option><option>ESCALATED</option><option>RESOLVED</option><option>CLOSED</option>
+                  </select>
+                  <button type="submit" class="btn btn-primary btn-sm">Update</button>
+                </form>
+              </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(complaints)}">
+              <td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">No complaints filed</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+</body></html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>My Profile — ResidentOps</title>
+<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">🏢 ResidentOps<span class="sidebar-sub">Governance Platform</span></div>
+    <div class="sidebar-user"><strong th:text="${user.name}"></strong><br><small th:text="${user.role}"></small></div>
+    <nav>
+      <a th:href="@{/dashboard}" class="nav-item">📊 Dashboard</a>
+      <a th:if="${user.role.name() != 'AUDITOR'}" th:href="@{/requests}" class="nav-item">🔧 Maintenance</a>
+      <a th:if="${user.role.name() == 'RESIDENT' or user.role.name() == 'COMMITTEE_ADMIN'}"
+         th:href="@{/complaints}" class="nav-item">📋 Complaints</a>
+      <a th:if="${user.role.name() == 'RESIDENT' or user.role.name() == 'COMMITTEE_ADMIN'}"
+         th:href="@{/polls}" class="nav-item">🗳️ Voting</a>
+      <a th:if="${user.role.name() == 'COMMITTEE_ADMIN' or user.role.name() == 'AUDITOR'}"
+         th:href="@{/expenses}" class="nav-item">💰 Expenses</a>
+      <a th:href="@{/notices}" class="nav-item">📢 Notices</a>
+      <a th:if="${user.role.name() == 'VENDOR'}" th:href="@{/vendor/concerns}" class="nav-item">📨 My Concerns</a>
+      <a th:if="${user.role.name() == 'COMMITTEE_ADMIN' or user.role.name() == 'AUDITOR'}"
+         th:href="@{/audit}" class="nav-item">🔍 Audit Log</a>
+      <a th:href="@{/profile}" class="nav-item active">👤 My Profile</a>
+    </nav>
+    <div class="sidebar-footer"><a th:href="@{/logout}" class="btn-logout">Sign Out</a></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h2>My Profile</h2>
+      <span class="role-badge" th:text="${user.role}"></span>
+    </header>
+    <div class="content">
+
+      <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+      <div th:if="${error}"   class="alert alert-danger"  th:text="${error}"></div>
+
+      <!-- ── Basic Info Card ── -->
+      <div class="card">
+        <div class="card-title">Account Information</div>
+        <div class="info-grid">
+          <div class="info-row"><span class="info-label">Name</span><span th:text="${user.name}"></span></div>
+          <div class="info-row"><span class="info-label">Email</span><span th:text="${user.email}"></span></div>
+          <div class="info-row"><span class="info-label">Role</span>
+            <span class="badge badge-purple" th:text="${user.role}"></span>
+          </div>
+
+          <!-- Resident-only fields -->
+          <div th:if="${user.role.name() == 'RESIDENT'}" class="info-row">
+            <span class="info-label">Flat No</span>
+            <span th:text="${user.apartmentNo}" style="font-weight:600"></span>
+            <small class="view-only-tag">View only</small>
+          </div>
+          <div th:if="${user.role.name() == 'RESIDENT'}" class="info-row">
+            <span class="info-label">Block / Floor</span>
+            <span th:text="${user.blockNo != null ? 'Block ' + user.blockNo + ', Floor ' + user.floorNo : '—'}"></span>
+          </div>
+          <div th:if="${user.role.name() == 'RESIDENT'}" class="info-row">
+            <span class="info-label">No. of People in Flat</span>
+            <span th:text="${memberCount != null ? memberCount + 1 : 1}" style="font-weight:600"></span>
+            <small class="view-only-tag">View only</small>
+          </div>
+
+          <!-- Vendor-only fields -->
+          <div th:if="${user.role.name() == 'VENDOR'}" class="info-row">
+            <span class="info-label">Service Type</span>
+            <span class="tag" th:text="${user.serviceType}"></span>
+          </div>
+          <div th:if="${user.role.name() == 'VENDOR'}" class="info-row">
+            <span class="info-label">Rating</span>
+            <span th:text="${user.rating > 0 ? user.rating + ' ⭐' : 'No ratings yet'}"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Phone Update Card ── -->
+      <div class="card">
+        <div class="card-title">Phone Number
+          <small style="font-weight:400;color:var(--text-muted);font-size:12px"> (can be updated)</small>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <span style="font-size:15px" th:text="${user.phoneNo != null ? user.phoneNo : 'Not set'}"></span>
+        </div>
+        <form method="post" th:action="@{/profile/update-phone}" style="display:flex;gap:10px;align-items:flex-end">
+          <div class="form-group" style="flex:1;margin-bottom:0">
+            <label>New Phone Number</label>
+            <input name="newPhone" type="tel" placeholder="e.g. +91-9876543210"
+                   th:value="${user.phoneNo}" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Update</button>
+        </form>
+      </div>
+
+      <!-- ── Change Password Card ── -->
+      <div class="card">
+        <div class="card-title">Password</div>
+        <a th:href="@{/profile/change-password}" class="btn btn-primary">Change Password</a>
+      </div>
+
+      <!-- ── Resident: Flat Members ── -->
+      <div th:if="${user.role.name() == 'RESIDENT'}" class="card">
+        <div class="card-title">People in Your Flat</div>
+
+        <!-- Main resident -->
+        <div class="member-row primary-member">
+          <div class="member-name">👤 <strong th:text="${user.name}"></strong> <span class="badge badge-blue">You (Primary)</span></div>
+          <div class="member-phone" th:text="${user.phoneNo != null ? user.phoneNo : '—'}"></div>
+        </div>
+
+        <!-- Other members -->
+        <div th:each="m : ${members}" class="member-row">
+          <div class="member-name">👤 <span th:text="${m.memberName}"></span></div>
+          <div class="member-phone" th:text="${m.phoneNo != null ? m.phoneNo : '—'}"></div>
+        </div>
+
+        <div th:if="${members.isEmpty()}" style="color:var(--text-muted);font-size:13px;margin:8px 0">
+          No additional members added yet.
+        </div>
+
+        <!-- Add member button / form -->
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <button class="btn btn-primary btn-sm" onclick="toggleAddMember()">+ Add Person to Flat</button>
+          <div id="addMemberForm" style="display:none;margin-top:14px">
+            <form method="post" th:action="@{/profile/add-member}" enctype="multipart/form-data">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Person's Name <span class="req">*</span></label>
+                  <input name="memberName" placeholder="Full name" required>
+                </div>
+                <div class="form-group">
+                  <label>Phone Number (optional)</label>
+                  <input name="memberPhone" placeholder="+91-XXXXXXXXXX">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Upload Proof (Aadhaar / ID) <span class="req">*</span></label>
+                <input type="file" name="proof" accept=".pdf,.jpg,.jpeg,.png" required>
+                <small style="color:var(--text-muted)">Accepted: PDF, JPG, PNG</small>
+              </div>
+              <div style="background:var(--warning-light);padding:10px;border-radius:6px;font-size:12px;margin-bottom:12px;color:var(--warning)">
+                ⚠️ This request will go to admin for document verification before being approved.
+              </div>
+              <button type="submit" class="btn btn-primary">Submit for Verification</button>
+              <button type="button" class="btn" style="background:var(--bg);margin-left:8px"
+                      onclick="toggleAddMember()">Cancel</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- My previous update requests status -->
+        <div th:if="${myUpdateReqs != null and !myUpdateReqs.isEmpty()}"
+             style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <div style="font-weight:600;font-size:13px;margin-bottom:8px">My Update Requests</div>
+          <table>
+            <thead><tr><th>Member Name</th><th>Status</th><th>Date</th><th>Remarks</th></tr></thead>
+            <tbody>
+              <tr th:each="r : ${myUpdateReqs}">
+                <td th:text="${r.newMemberName}"></td>
+                <td>
+                  <span th:class="'badge ' + (${r.status.name() == 'APPROVED'} ? 'badge-green' : (${r.status.name() == 'REJECTED'} ? 'badge-red' : 'badge-orange'))"
+                        th:text="${r.status}"></span>
+                </td>
+                <td th:text="${#temporals.format(r.createdAt,'dd MMM yyyy')}"></td>
+                <td th:text="${r.adminRemarks != null ? r.adminRemarks : '—'}"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── Password reset status ── -->
+      <div th:if="${hasPendingReset}" class="card" style="border-left:4px solid var(--warning)">
+        <div style="color:var(--warning);font-weight:600">⏳ Password Reset Pending</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-top:6px">
+          Your password reset request is pending admin review. Once processed, you'll be notified.
+        </p>
+      </div>
+
+    </div>
+  </main>
+</div>
+<script>
+function toggleAddMember() {
+  const f = document.getElementById('addMemberForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+</body>
+</html>

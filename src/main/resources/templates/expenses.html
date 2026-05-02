@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Expenses — ResidentOps</title>
+<link rel="stylesheet" th:href="@{/css/style.css}"></head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">🏢 ResidentOps<span class="sidebar-sub">Governance Platform</span></div>
+    <div class="sidebar-user"><strong th:text="${user.name}"></strong><br><small th:text="${user.role}"></small></div>
+    <nav>
+      <a th:href="@{/dashboard}" class="nav-item">📊 Dashboard</a>
+      <a th:href="@{/requests}" class="nav-item">🔧 Maintenance</a>
+      <a th:href="@{/notices}" class="nav-item">📢 Notices</a>
+      <a th:href="@{/expenses}" class="nav-item active">💰 Expenses</a>
+      <a th:href="@{/audit}" class="nav-item">🔍 Audit Log</a>
+    </nav>
+    <div class="sidebar-footer"><a th:href="@{/logout}" class="btn-logout">Sign Out</a></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><h2>Expense Management</h2><span class="role-badge" th:text="${user.role}"></span></header>
+    <div class="content">
+      <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+
+      <div class="stats-grid">
+        <div class="stat-card orange">
+          <div class="stat-label">Total Expenses</div>
+          <div class="stat-value" th:text="'₹' + ${#numbers.formatDecimal(totalExpenses,1,'COMMA',0,'POINT')}">₹0</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-label">Records</div>
+          <div class="stat-value" th:text="${#lists.size(expenses)}">0</div>
+        </div>
+      </div>
+
+      <div th:if="${user.role.name() == 'COMMITTEE_ADMIN'}" class="card">
+        <div class="card-title">Add Expense</div>
+        <form method="post" th:action="@{/expenses/add}">
+          <div class="form-grid">
+            <div class="form-group"><label>Title</label><input name="title" placeholder="e.g. Generator fuel" required></div>
+            <div class="form-group"><label>Amount (₹)</label><input type="number" name="amount" placeholder="5000" required></div>
+            <div class="form-group"><label>Category</label>
+              <select name="category"><option>MAINTENANCE</option><option>SALARY</option><option>UTILITIES</option><option>SECURITY</option><option>REPAIR</option><option>OTHER</option></select>
+            </div>
+            <div class="form-group"><label>Date</label><input type="date" name="expenseDate" required></div>
+          </div>
+          <div class="form-group"><label>Notes</label><textarea name="notes" placeholder="Additional details..."></textarea></div>
+          <button type="submit" class="btn btn-primary">Add Expense</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Expense Records</div>
+        <table>
+          <thead><tr><th>#</th><th>Title</th><th>Category</th><th>Amount</th><th>Approved By</th><th>Date</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr th:each="e : ${expenses}">
+              <td th:text="'#'+${e.id}"></td>
+              <td th:text="${e.title}"></td>
+              <td><span class="tag" th:text="${e.category}"></span></td>
+              <td style="font-weight:600;color:#dc2626" th:text="'₹' + ${#numbers.formatDecimal(e.amount,1,'COMMA',0,'POINT')}"></td>
+              <td th:text="${e.approvedBy.name}"></td>
+              <td th:text="${#temporals.format(e.expenseDate,'dd MMM yyyy')}"></td>
+              <td style="color:#64748b" th:text="${e.notes != null ? e.notes : '—'}"></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(expenses)}"><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">No expenses recorded</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+</body></html>

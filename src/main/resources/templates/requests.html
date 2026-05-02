@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Maintenance Requests — ResidentOps</title>
+<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">🏢 ResidentOps<span class="sidebar-sub">Governance Platform</span></div>
+    <div class="sidebar-user">
+      <strong th:text="${user.name}"></strong><br>
+      <small th:text="${user.role}"></small>
+    </div>
+    <nav>
+      <a th:href="@{/dashboard}" class="nav-item">📊 Dashboard</a>
+      <a th:href="@{/requests}" class="nav-item active">🔧 Maintenance</a>
+      <a th:if="${user.role.name() == 'RESIDENT' or user.role.name() == 'COMMITTEE_ADMIN'}"
+         th:href="@{/complaints}" class="nav-item">📋 Complaints</a>
+      <a th:if="${user.role.name() == 'RESIDENT' or user.role.name() == 'COMMITTEE_ADMIN'}"
+         th:href="@{/polls}" class="nav-item">🗳️ Voting</a>
+      <a th:if="${user.role.name() == 'COMMITTEE_ADMIN' or user.role.name() == 'AUDITOR'}"
+         th:href="@{/expenses}" class="nav-item">💰 Expenses</a>
+      <a th:href="@{/notices}" class="nav-item">📢 Notices</a>
+      <a th:if="${user.role.name() == 'COMMITTEE_ADMIN' or user.role.name() == 'AUDITOR'}"
+         th:href="@{/audit}" class="nav-item">🔍 Audit Log</a>
+    </nav>
+    <div class="sidebar-footer"><a th:href="@{/logout}" class="btn-logout">Sign Out</a></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h2>Maintenance Requests</h2>
+      <span class="role-badge" th:text="${user.role}"></span>
+    </header>
+    <div class="content">
+
+      <!-- Flash messages -->
+      <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+      <div th:if="${error}"   class="alert alert-danger"  th:text="${error}"></div>
+
+      <!-- RESIDENT: Raise Request Form -->
+      <div th:if="${user.role.name() == 'RESIDENT'}" class="card">
+        <div class="card-title">Raise New Request</div>
+        <form method="post" th:action="@{/requests/raise}">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Title</label>
+              <input name="title" placeholder="e.g. Bathroom tap leaking" required>
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select name="category">
+                <option>PLUMBING</option><option>ELECTRICAL</option>
+                <option>CIVIL</option><option>CLEANING</option>
+                <option>SECURITY</option><option>OTHER</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Priority</label>
+              <select name="priority">
+                <option>LOW</option><option>MEDIUM</option>
+                <option>HIGH</option><option>CRITICAL</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" placeholder="Describe the issue in detail..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Submit Request</button>
+        </form>
+      </div>
+
+      <!-- Requests Table -->
+      <div class="card">
+        <div class="card-title">All Requests (<span th:text="${#lists.size(requests)}">0</span>)</div>
+        <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Title</th><th>Category</th><th>Priority</th>
+              <th>Status</th><th>Assigned To</th><th>SLA Deadline</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="req : ${requests}">
+              <td th:text="'#'+${req.id}"></td>
+              <td th:text="${req.title}"></td>
+              <td><span class="tag" th:text="${req.category}"></span></td>
+              <td><span class="badge" th:text="${req.priority}"></span></td>
+              <td><span class="badge" th:text="${req.status}"></span></td>
+              <td th:text="${req.assignedTo != null ? req.assignedTo.name : '—'}"></td>
+              <td>
+                <span th:if="${req.slaDeadline != null}"
+                      th:class="${req.SLABreached ? 'sla-breached' : ''}"
+                      th:text="${#temporals.format(req.slaDeadline,'dd MMM HH:mm')}"></span>
+                <span th:unless="${req.slaDeadline != null}">—</span>
+              </td>
+              <td>
+                <!-- ADMIN: Assign vendor form -->
+                <div th:if="${user.role.name() == 'COMMITTEE_ADMIN' and req.status.name() == 'RAISED'}">
+                  <form method="post" th:action="@{/requests/{id}/assign(id=${req.id})}"
+                        style="display:inline-flex;gap:4px;flex-wrap:wrap">
+                    <select name="vendorId" id="vs-[[${req.id}]]"
+                            onchange="checkLeave(this, [[${req.id}]])"
+                            style="padding:4px;font-size:12px">
+                      <option value="">Select vendor...</option>
+                      <option th:each="v : ${vendors}"
+                              th:value="${v.id}"
+                              th:data-onleave="${vendorLeaveMap[v.id] != null ? 'true' : 'false'}"
+                              th:data-leavetill="${vendorLeaveMap[v.id] != null ? vendorLeaveMap[v.id].leaveTo : ''}"
+                              th:text="${v.name} + ' (' + ${v.serviceType} + ')' + (${vendorLeaveMap[v.id] != null} ? ' 🚫 ON LEAVE' : '')">
+                      </option>
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-sm">Assign</button>
+                  </form>
+                  <div id="leave-warn-[[${req.id}]]"
+                       style="display:none;margin-top:4px;font-size:11px;color:var(--danger);
+                              background:var(--danger-light);padding:4px 8px;border-radius:5px">
+                  </div>
+                </div>
+                <!-- VENDOR: Start Work -->
+                <form th:if="${user.role.name() == 'VENDOR' and req.status.name() == 'ASSIGNED' and req.assignedTo != null and req.assignedTo.id == user.id}"
+                      method="post" th:action="@{/requests/{id}/start(id=${req.id})}"
+                      style="display:inline">
+                  <button type="submit" class="btn btn-success btn-sm">Start Work</button>
+                </form>
+                <!-- VENDOR: Mark Resolved -->
+                <form th:if="${user.role.name() == 'VENDOR' and req.status.name() == 'IN_PROGRESS' and req.assignedTo != null and req.assignedTo.id == user.id}"
+                      method="post" th:action="@{/requests/{id}/resolve(id=${req.id})}"
+                      style="display:inline">
+                  <input name="workSummary" placeholder="Summary..." style="width:120px;padding:4px;font-size:12px">
+                  <button type="submit" class="btn btn-success btn-sm">Resolve</button>
+                </form>
+                <!-- ADMIN: Close -->
+                <form th:if="${user.role.name() == 'COMMITTEE_ADMIN' and req.status.name() == 'RESOLVED'}"
+                      method="post" th:action="@{/requests/{id}/close(id=${req.id})}"
+                      style="display:inline-flex;gap:4px">
+                  <input name="cost" placeholder="Cost ₹" type="number" style="width:80px;padding:4px;font-size:12px">
+                  <button type="submit" class="btn btn-success btn-sm">Close</button>
+                </form>
+              </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(requests)}">
+              <td colspan="8" style="text-align:center;color:#94a3b8;padding:20px">No requests found</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+function checkLeave(sel, reqId) {
+  const opt = sel.options[sel.selectedIndex];
+  const onLeave = opt.getAttribute('data-onleave') === 'true';
+  const till    = opt.getAttribute('data-leavetill') || 'unknown';
+  const warn    = document.getElementById('leave-warn-' + reqId);
+  if (onLeave && warn) {
+    warn.style.display = 'block';
+    warn.textContent   = '⚠️ This vendor is on approved leave until ' + till + '. Cannot be assigned.';
+    // Disable submit
+    sel.closest('form').querySelector('button[type=submit]').disabled = true;
+  } else if (warn) {
+    warn.style.display = 'none';
+    sel.closest('form').querySelector('button[type=submit]').disabled = false;
+  }
+}
+</script>
+</body>
+</html>

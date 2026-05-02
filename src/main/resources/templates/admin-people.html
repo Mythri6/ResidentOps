@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>People Management — ResidentOps</title>
+<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">🏢 ResidentOps<span class="sidebar-sub">Governance Platform</span></div>
+    <div class="sidebar-user"><strong th:text="${user.name}"></strong><br><small th:text="${user.role}"></small></div>
+    <nav>
+      <a th:href="@{/dashboard}"     class="nav-item">📊 Dashboard</a>
+      <a th:href="@{/requests}"      class="nav-item">🔧 Maintenance</a>
+      <a th:href="@{/complaints}"    class="nav-item">📋 Complaints</a>
+      <a th:href="@{/polls}"         class="nav-item">🗳️ Voting</a>
+      <a th:href="@{/expenses}"      class="nav-item">💰 Expenses</a>
+      <a th:href="@{/notices}"       class="nav-item">📢 Notices</a>
+      <a th:href="@{/admin/people}"  class="nav-item active">👥 People</a>
+      <a th:href="@{/admin/concerns}" class="nav-item">📨 Concerns</a>
+      <a th:href="@{/audit}"         class="nav-item">🔍 Audit Log</a>
+    </nav>
+    <div class="sidebar-footer"><a th:href="@{/logout}" class="btn-logout">Sign Out</a></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h2>People Management</h2>
+      <span class="role-badge" th:text="${user.role}"></span>
+    </header>
+    <div class="content">
+
+      <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+      <div th:if="${error}"   class="alert alert-danger"  th:text="${error}"></div>
+
+      <!-- ── Pending Alerts ── -->
+      <div th:if="${!flatUpdateReqs.isEmpty()}" class="alert" style="background:#fef3c7;color:#92400e;border-left:4px solid #d97706">
+        ⏳ <strong th:text="${flatUpdateReqs.size()}"></strong> flat member update request(s) waiting for verification.
+        <a href="#flat-updates" style="color:var(--primary);margin-left:6px">Review below ↓</a>
+      </div>
+      <div th:if="${!passwordReqs.isEmpty()}" class="alert" style="background:#e0f2fe;color:#0c4a6e;border-left:4px solid #0284c7">
+        🔑 <strong th:text="${passwordReqs.size()}"></strong> password reset request(s) pending.
+        <a href="#pwd-resets" style="color:var(--primary);margin-left:6px">Review below ↓</a>
+      </div>
+
+      <!-- ── Role Tabs ── -->
+      <div style="display:flex;gap:8px;margin-bottom:20px">
+        <a th:href="@{/admin/people(viewRole='RESIDENT')}"
+           th:class="'btn ' + (${viewRole == 'RESIDENT'} ? 'btn-primary' : '')"
+           style="text-decoration:none">🏠 Residents</a>
+        <a th:href="@{/admin/people(viewRole='VENDOR')}"
+           th:class="'btn ' + (${viewRole == 'VENDOR'} ? 'btn-primary' : '')"
+           style="text-decoration:none">🔧 Vendors</a>
+        <a th:href="@{/admin/people(viewRole='AUDITOR')}"
+           th:class="'btn ' + (${viewRole == 'AUDITOR'} ? 'btn-primary' : '')"
+           style="text-decoration:none">🔍 Auditors</a>
+        <a th:href="@{/admin/people(viewRole='COMMITTEE_ADMIN')}"
+           th:class="'btn ' + (${viewRole == 'COMMITTEE_ADMIN'} ? 'btn-primary' : '')"
+           style="text-decoration:none">🛡️ Admins</a>
+      </div>
+
+      <!-- ══ ADD NEW RESIDENT FORM ══ -->
+      <div th:if="${viewRole == 'RESIDENT'}" class="card">
+        <div class="card-title" style="cursor:pointer" onclick="toggle('addResidentForm')">
+          ➕ Register New Resident <small style="font-weight:400;color:var(--text-muted)">(click to expand)</small>
+        </div>
+        <div id="addResidentForm" style="display:none">
+          <form method="post" th:action="@{/admin/people/add-resident}">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Resident Name <span class="req">*</span></label>
+                <input name="name" placeholder="Full name" required>
+              </div>
+              <div class="form-group">
+                <label>Phone Number</label>
+                <input name="phoneNo" placeholder="+91-XXXXXXXXXX">
+              </div>
+              <div class="form-group">
+                <label>Apartment Prefix <span class="req">*</span></label>
+                <input name="apartmentPrefix" value="RO" placeholder="e.g. RO" required>
+                <small style="color:var(--text-muted)">Short name of apartment (e.g. RO for ResidentOps)</small>
+              </div>
+              <div class="form-group">
+                <label>Block No <span class="req">*</span></label>
+                <input name="blockNo" placeholder="e.g. 0, 1, A" required>
+              </div>
+              <div class="form-group">
+                <label>Floor No <span class="req">*</span></label>
+                <input name="floorNo" placeholder="e.g. 1, 2, G" required>
+              </div>
+              <div class="form-group">
+                <label>Flat / Room No <span class="req">*</span></label>
+                <input name="flatNo" placeholder="e.g. 214, 101" required
+                       oninput="previewEmail(this)">
+              </div>
+              <div class="form-group">
+                <label>Owner Type</label>
+                <select name="ownerType">
+                  <option value="OWNER">Owner</option>
+                  <option value="TENANT">Tenant</option>
+                </select>
+              </div>
+            </div>
+            <div style="background:var(--primary-light);padding:10px;border-radius:6px;font-size:13px;margin-bottom:12px">
+              📧 Auto-generated email preview:
+              <strong id="emailPreview" style="font-family:monospace">—</strong>@resident.com
+              <br><small style="color:var(--text-muted)">Default password: <strong>RO@123</strong></small>
+            </div>
+            <button type="submit" class="btn btn-primary">Register Resident</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ══ ADD NEW VENDOR FORM ══ -->
+      <div th:if="${viewRole == 'VENDOR'}" class="card">
+        <div class="card-title" style="cursor:pointer" onclick="toggle('addVendorForm')">
+          ➕ Register New Vendor <small style="font-weight:400;color:var(--text-muted)">(click to expand)</small>
+        </div>
+        <div id="addVendorForm" style="display:none">
+          <form method="post" th:action="@{/admin/people/add-vendor}">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Vendor Name <span class="req">*</span></label>
+                <input name="name" placeholder="Full name" required oninput="previewVendorEmail(this)">
+              </div>
+              <div class="form-group">
+                <label>Phone Number</label>
+                <input name="phoneNo" placeholder="+91-XXXXXXXXXX">
+              </div>
+              <div class="form-group">
+                <label>Service Type <span class="req">*</span></label>
+                <select name="serviceType" required>
+                  <option value="">— Select —</option>
+                  <option>PLUMBING</option>
+                  <option>ELECTRICAL</option>
+                  <option>CIVIL</option>
+                  <option>CLEANING</option>
+                  <option>HOUSEKEEPING</option>
+                  <option>SECURITY</option>
+                  <option>LIFT_MAINTENANCE</option>
+                  <option>PEST_CONTROL</option>
+                  <option>OTHER</option>
+                </select>
+              </div>
+            </div>
+            <div style="background:var(--primary-light);padding:10px;border-radius:6px;font-size:13px;margin-bottom:12px">
+              📧 Auto-generated email preview:
+              <strong id="vendorEmailPreview" style="font-family:monospace">—</strong>@vendor.com
+              <br><small style="color:var(--text-muted)">Default password: <strong>RO@123</strong></small>
+            </div>
+            <button type="submit" class="btn btn-primary">Register Vendor</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ══ PEOPLE LIST ══ -->
+      <div class="card">
+        <div class="card-title" th:text="${viewRole + ' LIST (' + #lists.size(people) + ')'}"></div>
+        <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Name</th><th>Email</th><th>Phone</th>
+              <th th:if="${viewRole == 'RESIDENT'}">Flat</th>
+              <th th:if="${viewRole == 'RESIDENT'}">Block/Floor</th>
+              <th th:if="${viewRole == 'RESIDENT'}">People in Flat</th>
+              <th th:if="${viewRole == 'VENDOR'}">Service</th>
+              <th th:if="${viewRole == 'VENDOR'}">Rating</th>
+              <th th:if="${viewRole == 'VENDOR'}">Leave Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="p : ${people}">
+              <td th:text="${p.id}"></td>
+              <td><strong th:text="${p.name}"></strong></td>
+              <td style="font-family:monospace;font-size:12px" th:text="${p.email}"></td>
+              <td th:text="${p.phoneNo != null ? p.phoneNo : '—'}"></td>
+              <!-- Resident columns -->
+              <td th:if="${viewRole == 'RESIDENT'}" style="font-weight:600" th:text="${p.apartmentNo}"></td>
+              <td th:if="${viewRole == 'RESIDENT'}"
+                  th:text="${p.blockNo != null ? 'B' + p.blockNo + ' F' + p.floorNo : '—'}"></td>
+              <td th:if="${viewRole == 'RESIDENT'}">
+                <!-- Count: 1 (primary) + members -->
+                <span th:if="${membersMap[p.id] != null}"
+                      th:text="${membersMap[p.id].size() + 1} + ' people'"></span>
+                <span th:unless="${membersMap[p.id] != null}">1 person</span>
+                <!-- Show member names -->
+                <div th:if="${membersMap[p.id] != null and !membersMap[p.id].isEmpty()}"
+                     style="font-size:11px;color:var(--text-muted);margin-top:3px">
+                  <span th:each="m,i : ${membersMap[p.id]}">
+                    <span th:text="${m.memberName}"></span><span th:unless="${i.last}">, </span>
+                  </span>
+                </div>
+              </td>
+              <!-- Vendor columns -->
+              <td th:if="${viewRole == 'VENDOR'}">
+                <span class="tag" th:text="${p.serviceType}"></span>
+              </td>
+              <td th:if="${viewRole == 'VENDOR'}"
+                  th:text="${p.rating > 0 ? p.rating + ' ⭐' : '—'}"></td>
+              <td th:if="${viewRole == 'VENDOR'}">
+                <span class="badge badge-green">Available</span>
+              </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(people)}">
+              <td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px">No records found</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <!-- ══ FLAT UPDATE REQUESTS ══ -->
+      <div id="flat-updates" th:if="${!flatUpdateReqs.isEmpty()}" class="card">
+        <div class="card-title">⏳ Flat Member Update Requests — Pending Verification</div>
+        <table>
+          <thead>
+            <tr><th>Flat</th><th>Resident</th><th>New Member</th><th>Phone</th><th>Proof</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            <tr th:each="r : ${flatUpdateReqs}">
+              <td><strong th:text="${r.resident.apartmentNo}"></strong></td>
+              <td th:text="${r.resident.name}"></td>
+              <td th:text="${r.newMemberName}"></td>
+              <td th:text="${r.newMemberPhone != null ? r.newMemberPhone : '—'}"></td>
+              <td>
+                <span th:if="${r.proofFilename != null and r.proofFilename != 'no-proof'}"
+                      style="color:var(--success)">📎 Document uploaded</span>
+                <span th:unless="${r.proofFilename != null and r.proofFilename != 'no-proof'}"
+                      style="color:var(--danger)">No proof</span>
+              </td>
+              <td>
+                <form method="post" th:action="@{/admin/flat-update/{id}/approve(id=${r.id})}"
+                      style="display:inline" onsubmit="return confirmApprove(event)">
+                  <label style="font-size:12px;display:block;margin-bottom:4px">
+                    <input type="checkbox" id="agree-[[${r.id}]]" style="width:auto"
+                           onchange="toggleApproveBtn('[[${r.id}]]')">
+                    I verified the documents and agree to update
+                  </label>
+                  <button type="submit" id="approve-btn-[[${r.id}]]"
+                          class="btn btn-success btn-sm" disabled>✅ Verified &amp; Update</button>
+                </form>
+                <form method="post" th:action="@{/admin/flat-update/{id}/reject(id=${r.id})}"
+                      style="display:inline;margin-left:6px">
+                  <input name="remarks" placeholder="Rejection reason" style="width:130px;padding:4px;font-size:12px">
+                  <button type="submit" class="btn btn-danger btn-sm">❌ Reject</button>
+                </form>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ══ PASSWORD RESET REQUESTS ══ -->
+      <div id="pwd-resets" th:if="${!passwordReqs.isEmpty()}" class="card">
+        <div class="card-title">🔑 Password Reset Requests</div>
+        <table>
+          <thead><tr><th>User</th><th>Role</th><th>Email</th><th>Requested At</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr th:each="r : ${passwordReqs}">
+              <td th:text="${r.user.name}"></td>
+              <td><span class="badge badge-purple" th:text="${r.user.role}"></span></td>
+              <td style="font-family:monospace;font-size:12px" th:text="${r.user.email}"></td>
+              <td th:text="${#temporals.format(r.createdAt,'dd MMM yyyy HH:mm')}"></td>
+              <td>
+                <form method="post" th:action="@{/admin/password-reset/{id}/approve(id=${r.id})}"
+                      style="display:inline">
+                  <button type="submit" class="btn btn-primary btn-sm">
+                    Reset to RO@123 &amp; Notify User
+                  </button>
+                </form>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </main>
+</div>
+<script>
+function toggle(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function toggleApproveBtn(id) {
+  const checkbox = document.getElementById('agree-' + id);
+  const btn = document.getElementById('approve-btn-' + id);
+  btn.disabled = !checkbox.checked;
+}
+function previewEmail(input) {
+  const prefix = document.querySelector('[name=apartmentPrefix]')?.value || 'RO';
+  const block  = document.querySelector('[name=blockNo]')?.value || '?';
+  const floor  = document.querySelector('[name=floorNo]')?.value || '?';
+  const flat   = input.value || '?';
+  document.getElementById('emailPreview').textContent =
+    (prefix + 'B' + block + 'F' + floor + 'R' + flat).toUpperCase();
+}
+// also trigger on block/floor change
+document.addEventListener('input', function(e) {
+  if (e.target.name === 'blockNo' || e.target.name === 'floorNo' || e.target.name === 'apartmentPrefix') {
+    const flat = document.querySelector('[name=flatNo]');
+    if (flat) previewEmail(flat);
+  }
+});
+function previewVendorEmail(input) {
+  const name = input.value.trim().toLowerCase().replace(/\s+/g, '');
+  document.getElementById('vendorEmailPreview').textContent = name || '—';
+}
+</script>
+</body>
+</html>
